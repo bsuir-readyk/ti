@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Криптография — Лаб. 1</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f0f2f5; padding: 24px; color: #333; }
+    h1 { text-align: center; margin-bottom: 6px; font-size: 1.4rem; }
+    .subtitle { text-align: center; color: #777; margin-bottom: 20px; font-size: .85rem; }
+
+    .tabs { display: flex; gap: 4px; }
+    .tab {
+      padding: 10px 22px; background: #dce0e4; border: none; border-radius: 8px 8px 0 0;
+      cursor: pointer; font-size: .95rem; transition: background .2s;
+    }
+    .tab:hover { background: #cfd4d9; }
+    .tab.active { background: #fff; font-weight: 600; }
+
+    .panel {
+      display: none; background: #fff; border-radius: 0 8px 8px 8px;
+      padding: 22px; box-shadow: 0 2px 6px rgba(0,0,0,.08);
+    }
+    .panel.active { display: block; }
+
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .row label { display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: .95rem; }
+    .row input {
+      padding: 7px 10px; border: 1px solid #ccc; border-radius: 5px;
+      font-size: .95rem; width: 210px; outline: none; transition: border-color .2s;
+    }
+    .row input:focus { border-color: #5b8def; }
+
+    textarea {
+      width: 100%; min-height: 110px; padding: 10px; border: 1px solid #ccc;
+      border-radius: 6px; font-size: .95rem; resize: vertical; font-family: inherit;
+      outline: none; transition: border-color .2s;
+    }
+    textarea:focus { border-color: #5b8def; }
+
+    .label { font-weight: 500; margin: 10px 0 5px; font-size: .93rem; }
+
+    .actions { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
+    .actions button {
+      padding: 8px 18px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: .9rem; transition: background .15s;
+    }
+    .btn-enc { background: #4a7cff; color: #fff; }
+    .btn-enc:hover { background: #3b65d6; }
+    .btn-dec { background: #6c5ce7; color: #fff; }
+    .btn-dec:hover { background: #5a4bd1; }
+    .btn-file { background: #e9eaec; color: #444; }
+    .btn-file:hover { background: #dcdee1; }
+
+    .msg { color: #d32f2f; font-size: .84rem; min-height: 1.2em; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<h1>Простейшие шифры</h1>
+<p class="subtitle">Лабораторная работа 1</p>
+
+<div class="tabs">
+  <button class="tab active" data-tab="0">Столбцовый метод</button>
+  <button class="tab" data-tab="1">Виженер (автоключ)</button>
+</div>
+
+<!-- Столбцовый метод -->
+<div class="panel active" id="column-panel">
+  <div class="row">
+    <label>Ключ 1: <input id="column-key1" placeholder="русские буквы"></label>
+    <label>Ключ 2: <input id="column-key2" placeholder="русские буквы"></label>
+  </div>
+  <div class="label">Исходный текст:</div>
+  <textarea id="column-input"></textarea>
+  <div class="actions">
+    <button class="btn-enc" onclick="doColumn(false)">Зашифровать</button>
+    <button class="btn-dec" onclick="doColumn(true)">Расшифровать</button>
+    <button class="btn-file" onclick="loadFile('column-input')">Открыть файл</button>
+    <button class="btn-file" onclick="download('column-output')">Сохранить</button>
+  </div>
+  <div class="msg" id="column-error"></div>
+  <div class="label">Результат:</div>
+  <textarea id="column-output" readonly></textarea>
+</div>
+
+<!-- Виженер -->
+<div class="panel" id="vigenere-panel">
+  <div class="row">
+    <label>Ключ: <input id="vigenere-key" placeholder="русские буквы"></label>
+  </div>
+  <div class="label">Исходный текст:</div>
+  <textarea id="vigenere-input"></textarea>
+  <div class="actions">
+    <button class="btn-enc" onclick="doVigenere(false)">Зашифровать</button>
+    <button class="btn-dec" onclick="doVigenere(true)">Расшифровать</button>
+    <button class="btn-file" onclick="loadFile('vigenere-input')">Открыть файл</button>
+    <button class="btn-file" onclick="download('vigenere-output')">Сохранить</button>
+  </div>
+  <div class="msg" id="vigenere-error"></div>
+  <div class="label">Результат:</div>
+  <textarea id="vigenere-output" readonly></textarea>
+</div>
+
+<input type="file" id="file-input" accept=".txt" hidden>
+
+<script>
+const ABC = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ';
+const M = ABC.length; // 33
+
+/* helpers */
+
+function normalize(s) {
+  return s.toUpperCase().split('').filter(c => ABC.includes(c)).join('');
+}
+
+function sortedOrder(key) {
+  return [...key].map((ch, i) => [ch, i])
+    .sort((a, b) => a[0].localeCompare(b[0], 'ru') || a[1] - b[1])
+    .map(x => x[1]);
+}
+
+/* столбцовая перестановка */
+
+function columnEnc(plain, key) {
+  plain = normalize(plain);
+  key = normalize(key);
+  if (!key || !plain) return plain;
+
+  const cols = key.length;
+  const rows = Math.ceil(plain.length / cols);
+  const grid = [];
+
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      row.push(idx < plain.length ? plain[idx] : '');
+    }
+    grid.push(row);
+  }
+
+  const order = sortedOrder(key);
+  let out = '';
+  for (const c of order)
+    for (let r = 0; r < rows; r++)
+      if (grid[r][c]) out += grid[r][c];
+
+  return out.match(/.{1,5}/g)?.join(' ') ?? '';
+}
+
+function columnDec(cipher, key) {
+  cipher = normalize(cipher);
+  key = normalize(key);
+  if (!key || !cipher) return cipher;
+
+  const cols = key.length;
+  const rows = Math.ceil(cipher.length / cols);
+  const full = cipher.length % cols || cols;
+
+  const lengths = [];
+  for (let c = 0; c < cols; c++)
+    lengths[c] = c < full ? rows : rows - 1;
+
+  const order = sortedOrder(key);
+  const columns = new Array(cols);
+  let pos = 0;
+  for (const c of order) {
+    columns[c] = cipher.slice(pos, pos + lengths[c]).split('');
+    pos += lengths[c];
+  }
+
+  let out = '';
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      if (r < columns[c].length) out += columns[c][r];
+
+  return out;
+}
+
+/* виженер (самогенерирующийся ключ) */
+
+function vigenereEnc(text, key) {
+  const clean = normalize(text);
+  key = normalize(key);
+  if (!key || !clean) return clean;
+
+  const stream = key + clean;
+  let out = '', n = 0;
+
+  for (const ch of text) {
+    const up = ch.toUpperCase();
+    if (ABC.includes(up)) {
+      const pi = ABC.indexOf(up);
+      const ki = ABC.indexOf(stream[n]);
+      out += ABC[(pi + ki) % M];
+      n++;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+function vigenereDec(text, key) {
+  key = normalize(key);
+  if (!key) return text;
+
+  let stream = key, out = '', n = 0;
+
+  for (const ch of text) {
+    const up = ch.toUpperCase();
+    if (ABC.includes(up)) {
+      const ci = ABC.indexOf(up);
+      const ki = ABC.indexOf(stream[n]);
+      const di = (ci - ki + M) % M;
+      const decoded = ABC[di];
+      out += decoded;
+      stream += decoded;
+      n++;
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+/* UI: tabs */
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const idx = btn.dataset.tab;
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+    document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+  });
+});
+
+/* UI: actions */
+
+function err(id, msg) { document.getElementById(id).textContent = msg; }
+function val(id) { return document.getElementById(id).value; }
+function set(id, v) { document.getElementById(id).value = v; }
+
+function doColumn(dec) {
+  err('column-error', '');
+  const k1 = val('column-key1'), input = val('column-input');
+  if (!normalize(k1)) { err('column-error', 'Ключ 1 не содержит русских букв'); return; }
+  if (!normalize(input)) { err('column-error', 'Введите текст'); return; }
+
+  const k2 = val('column-key2');
+  let result;
+
+  if (normalize(k2)) {
+    result = dec
+      ? columnDec(columnDec(input, k2), k1)
+      : columnEnc(columnEnc(input, k1), k2);
+  } else {
+    result = dec ? columnDec(input, k1) : columnEnc(input, k1);
+  }
+  set('column-output', result);
+}
+
+function doVigenere(dec) {
+  err('vigenere-error', '');
+  const k = val('vigenere-key'), input = val('vigenere-input');
+  if (!normalize(k)) { err('vigenere-error', 'Ключ не содержит русских букв'); return; }
+  if (!normalize(input)) { err('vigenere-error', 'Введите текст'); return; }
+  set('vigenere-output', dec ? vigenereDec(input, k) : vigenereEnc(input, k));
+}
+
+/* файлы */
+
+let _target = null;
+const fileInput = document.getElementById('file-input');
+
+function loadFile(targetId) {
+  _target = targetId;
+  fileInput.value = '';
+  fileInput.click();
+}
+
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => set(_target, r.result);
+  r.readAsText(f, 'UTF-8');
+});
+
+function download(srcId) {
+  const text = val(srcId);
+  if (!text) return;
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'result.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
