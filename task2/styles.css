@@ -1,0 +1,159 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  background: #eef1f5;
+  color: #2d2d2d;
+}
+h1 {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.subtitle {
+  text-align: center;
+  color: #777;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
+}
+.card {
+  background: #fff;
+  padding: 22px 24px;
+  border-radius: 12px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+}
+.section-header {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e8eaed;
+  color: #1a1a1a;
+}
+.label {
+  font-weight: 500;
+  font-size: 0.88rem;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  color: #555;
+}
+textarea,
+input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+textarea:focus,
+input[type="text"]:focus {
+  border-color: #5b7dff;
+}
+textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+input.invalid {
+  border-color: #e74c3c;
+}
+.error {
+  color: #e74c3c;
+  font-size: 0.82rem;
+  margin-top: 4px;
+  min-height: 1.1em;
+}
+.file-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.file-label input[type="file"] {
+  display: none;
+}
+.file-btn {
+  display: inline-block;
+  padding: 7px 16px;
+  background: #e8eaed;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.file-btn:hover {
+  background: #d5d8dc;
+}
+.file-name {
+  font-size: 0.85rem;
+  color: #888;
+}
+.key-row {
+  position: relative;
+  margin-top: 2px;
+}
+.key-counter {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.78rem;
+  color: #aaa;
+  font-family: monospace;
+  pointer-events: none;
+}
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+button {
+  background: #5b7dff;
+  color: #fff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: background 0.15s, transform 0.1s;
+}
+button:hover {
+  background: #4a68d9;
+}
+button:active {
+  transform: scale(0.98);
+}
+.btn-download {
+  background: #34c759;
+  display: none;
+}
+.btn-download:hover {
+  background: #2db14d;
+}
+.output-box {
+  background: #1a1d23;
+  color: #69ff5e;
+  font-family: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+  padding: 14px 16px;
+  border-radius: 8px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  height: 140px;
+  overflow-y: auto;
+  line-height: 1.6;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}

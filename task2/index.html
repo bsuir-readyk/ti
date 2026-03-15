@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>LFSR Шифрование и Дешифрование</title>
+  </head>
+  <body>
+    <h1>Потоковое шифрование — LFSR</h1>
+    <p class="subtitle">Вариант 2 &middot; x<sup>24</sup> + x<sup>7</sup> + x<sup>2</sup> + x + 1</p>
+
+    <div class="card">
+      <div class="section-header">Исходные данные</div>
+      <textarea
+        id="textInput"
+        rows="3"
+        placeholder="Введите текст..."></textarea>
+      <label class="file-label">
+        <span class="file-btn">Выбрать файл</span>
+        <input type="file" id="fileInput" />
+        <span id="fileName" class="file-name">Файл не выбран</span>
+      </label>
+      <div class="label">Двоичное представление:</div>
+      <div id="output" class="output-box">
+        Здесь появятся биты исходных данных...
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">Ключ и управление</div>
+      <div class="key-row">
+        <input
+          type="text"
+          id="keyInput"
+          placeholder="Введите 24 бита (только 0 и 1)"
+          maxlength="24" />
+        <span id="keyCounter" class="key-counter">0/24</span>
+      </div>
+      <div id="registerError" class="error"></div>
+
+      <div class="btn-row">
+        <button id="generateKeyButton">Зашифровать / Расшифровать</button>
+        <button id="downloadButton" class="btn-download">Скачать результат</button>
+      </div>
+
+      <div class="label">Ключевая последовательность (LFSR):</div>
+      <div id="lfsrKeyOutput" class="output-box">
+        Здесь появятся биты сгенерированного ключа...
+      </div>
+
+      <div class="label">Результат:</div>
+      <div id="key" class="output-box">Здесь появятся биты результата...</div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+</html>
