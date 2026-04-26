@@ -1,8 +1,0 @@
-{
-  "name": "ti-task3",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "screenshots": "NODE_PATH=../docx/node_modules node generate-screenshots.js"
-  }
-}
