@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ЭЦП — Цифровая подпись</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; padding: 20px; color: #333; }
+    h1 { text-align: center; margin-bottom: 4px; font-size: 1.4rem; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: .9rem; }
+    .tabs { display: flex; gap: 4px; }
+    .tab { padding: 10px 20px; background: #ddd; border: none; border-radius: 8px 8px 0 0; cursor: pointer; font-size: .95rem; }
+    .tab.active { background: #fff; font-weight: 600; }
+    .panel { display: none; background: #fff; border-radius: 0 8px 8px 8px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .panel.active { display: block; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-weight: 500; font-size: .85rem; }
+    .field input { padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: .95rem; width: 160px; font-family: monospace; }
+    textarea { width: 100%; min-height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: .95rem; resize: vertical; font-family: inherit; }
+    .btns { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .btns button { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: .9rem; }
+    .btn-primary { background: #4a7cff; color: #fff; }
+    .btn-primary:hover { background: #3a65d4; }
+    .btn-secondary { background: #e8e8e8; color: #333; }
+    .btn-secondary:hover { background: #d5d5d5; }
+    .btn-green { background: #43a047; color: #fff; }
+    .btn-green:hover { background: #388e3c; }
+    .output-label { font-weight: 500; margin: 10px 0 4px; font-size: .9rem; }
+    .display { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; font-family: monospace; font-size: .85rem; max-height: 200px; overflow: auto; word-break: break-all; white-space: pre-wrap; min-height: 40px; }
+    .error { color: #d32f2f; font-size: .85rem; min-height: 1.2em; margin-top: 4px; }
+    .success { color: #2e7d32; font-size: .95rem; font-weight: 600; margin-top: 8px; }
+    .fail { color: #d32f2f; font-size: .95rem; font-weight: 600; margin-top: 8px; }
+    .info-box { background: #e3f2fd; border-radius: 6px; padding: 10px; font-size: .85rem; margin-bottom: 12px; font-family: monospace; white-space: pre-wrap; }
+    .file-info { color: #1976d2; font-size: .85rem; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<h1>Электронная цифровая подпись</h1>
+<p class="subtitle">Задание 4</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab(0)">RSA подпись</button>
+  <button class="tab" onclick="switchTab(1)">DSA подпись</button>
+</div>
+
+<!-- ═══════ RSA Signature ═══════ -->
+<div class="panel active" id="panel-0">
+  <div class="row">
+    <div class="field"><label>p (простое):</label><input id="rsig-p" value="257"></div>
+    <div class="field"><label>q (простое):</label><input id="rsig-q" value="263"></div>
+    <div class="field"><label>Kc (закрытый ключ):</label><input id="rsig-kc" value="17"></div>
+  </div>
+  <div class="info-box" id="rsig-info"></div>
+
+  <div class="output-label">Текст сообщения:</div>
+  <textarea id="rsig-msg" placeholder="Введите текст или откройте файл…"></textarea>
+
+  <div class="btns">
+    <button class="btn-secondary" onclick="openFile('rsig')">Открыть файл</button>
+    <button class="btn-primary" onclick="rsigSign()">Подписать</button>
+    <button class="btn-green" onclick="rsigVerify()">Проверить подпись</button>
+    <button class="btn-secondary" onclick="rsigSave()">Сохранить подписанный файл</button>
+  </div>
+  <div class="error" id="rsig-err"></div>
+  <div class="output-label">Результат:</div>
+  <div class="display" id="rsig-out"></div>
+  <div id="rsig-verify-result"></div>
+</div>
+
+<!-- ═══════ DSA Signature ═══════ -->
+<div class="panel" id="panel-1">
+  <div class="row">
+    <div class="field"><label>q (простое):</label><input id="dsa-q" value="251"></div>
+    <div class="field"><label>p (простое, p-1 mod q=0):</label><input id="dsa-p" value="503"></div>
+    <div class="field"><label>h (1 &lt; h &lt; p-1):</label><input id="dsa-h" value="2"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>x (закрытый, x &lt; q):</label><input id="dsa-x" value="37"></div>
+    <div class="field"><label>k (сеансовый, k &lt; q):</label><input id="dsa-k" value="123"></div>
+  </div>
+  <div class="info-box" id="dsa-info"></div>
+
+  <div class="output-label">Текст сообщения:</div>
+  <textarea id="dsa-msg" placeholder="Введите текст или откройте файл…"></textarea>
+
+  <div class="btns">
+    <button class="btn-secondary" onclick="openFile('dsa')">Открыть файл</button>
+    <button class="btn-primary" onclick="dsaSign()">Подписать</button>
+    <button class="btn-green" onclick="dsaVerify()">Проверить подпись</button>
+    <button class="btn-secondary" onclick="dsaSave()">Сохранить подписанный файл</button>
+  </div>
+  <div class="error" id="dsa-err"></div>
+  <div class="output-label">Результат:</div>
+  <div class="display" id="dsa-out"></div>
+  <div id="dsa-verify-result"></div>
+</div>
+
+<input type="file" id="file-input" hidden>
+
+<script>
+// ══════════════════ BigInt Math ══════════════════
+
+function modPow(base, exp, mod) {
+  base = ((base % mod) + mod) % mod;
+  let result = 1n;
+  while (exp > 0n) {
+    if (exp & 1n) result = (result * base) % mod;
+    base = (base * base) % mod;
+    exp >>= 1n;
+  }
+  return result;
+}
+
+function extGcd(a, b) {
+  if (b === 0n) return { g: a, x: 1n, y: 0n };
+  const { g, x, y } = extGcd(b, a % b);
+  return { g, x: y, y: x - (a / b) * y };
+}
+
+function modInverse(a, m) {
+  const { g, x } = extGcd(((a % m) + m) % m, m);
+  if (g !== 1n) return null;
+  return ((x % m) + m) % m;
+}
+
+function isPrime(n) {
+  if (n < 2n) return false;
+  if (n < 4n) return true;
+  if (n % 2n === 0n || n % 3n === 0n) return false;
+  for (let i = 5n; i * i <= n; i += 6n) {
+    if (n % i === 0n || n % (i + 2n) === 0n) return false;
+  }
+  return true;
+}
+
+function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a; }
+
+// Hash function 3.2: H_0 = 100, H_i = (H_{i-1} + m_i)^2 mod n
+function hashMsg(text, mod) {
+  let h = 100n;
+  for (let i = 0; i < text.length; i++) {
+    const mi = BigInt(text.charCodeAt(i));
+    h = modPow(h + mi, 2n, mod);
+  }
+  return h;
+}
+
+// ══════════════════ Tabs & File I/O ══════════════════
+
+function switchTab(n) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === n));
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === n));
+}
+
+let _fileTarget = null;
+const fileInput = document.getElementById('file-input');
+
+function openFile(prefix) {
+  _fileTarget = prefix;
+  fileInput.value = '';
+  fileInput.click();
+}
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  if (!file || !_fileTarget) return;
+  const reader = new FileReader();
+  const prefix = _fileTarget;
+  reader.onload = () => {
+    document.getElementById(`${prefix}-msg`).value = reader.result;
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+// ══════════════════ RSA Signature ══════════════════
+
+let rsigState = {};
+
+function rsigSign() {
+  const err = document.getElementById('rsig-err');
+  const out = document.getElementById('rsig-out');
+  err.textContent = '';
+  document.getElementById('rsig-verify-result').innerHTML = '';
+
+  const p = BigInt(document.getElementById('rsig-p').value);
+  const q = BigInt(document.getElementById('rsig-q').value);
+  const kc = BigInt(document.getElementById('rsig-kc').value);
+  const msg = document.getElementById('rsig-msg').value;
+
+  if (!isPrime(p)) { err.textContent = 'p не простое'; return; }
+  if (!isPrime(q)) { err.textContent = 'q не простое'; return; }
+  if (!msg) { err.textContent = 'Введите сообщение'; return; }
+
+  const r = p * q;
+  const phi = (p - 1n) * (q - 1n);
+  if (gcd(kc, phi) !== 1n) { err.textContent = 'gcd(Kc, φ) ≠ 1'; return; }
+  const ko = modInverse(kc, phi);
+
+  const h = hashMsg(msg, r);
+  const s = modPow(h, kc, r);
+
+  rsigState = { r, ko, kc, h, s, msg };
+
+  document.getElementById('rsig-info').textContent =
+    `r = ${r}\nφ(r) = ${phi}\nKo = ${ko}\nKc = ${kc}`;
+  out.textContent =
+    `Хеш сообщения H = ${h}\nЭЦП S = ${s}\n\nПодписанное сообщение:\n${msg}\n---SIGNATURE---\n${s}`;
+}
+
+function rsigVerify() {
+  const err = document.getElementById('rsig-err');
+  const vr = document.getElementById('rsig-verify-result');
+  err.textContent = '';
+  vr.innerHTML = '';
+
+  if (!rsigState.r) { err.textContent = 'Сначала подпишите сообщение'; return; }
+
+  // Parse signed message from output or textarea
+  const fullText = document.getElementById('rsig-msg').value;
+  const sigSep = '---SIGNATURE---';
+  let msg, sigStr;
+
+  if (fullText.includes(sigSep)) {
+    const parts = fullText.split(sigSep);
+    msg = parts[0].trimEnd();
+    sigStr = parts[1].trim();
+  } else {
+    msg = rsigState.msg;
+    sigStr = rsigState.s.toString();
+  }
+
+  const s = BigInt(sigStr);
+  const hCheck = modPow(s, rsigState.ko, rsigState.r);
+  const hComputed = hashMsg(msg, rsigState.r);
+
+  const valid = hCheck === hComputed;
+
+  document.getElementById('rsig-out').textContent =
+    `Проверка ЭЦП:\nH(сообщение) = ${hComputed}\nS^Ko mod r = ${hCheck}\n` +
+    `Совпадают: ${valid ? 'ДА' : 'НЕТ'}`;
+
+  vr.innerHTML = valid
+    ? '<p class="success">Подпись ВЕРНА</p>'
+    : '<p class="fail">Подпись НЕВЕРНА</p>';
+}
+
+function rsigSave() {
+  if (!rsigState.s) return;
+  const content = `${rsigState.msg}\n---SIGNATURE---\n${rsigState.s}`;
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'signed.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ══════════════════ DSA Signature ══════════════════
+
+let dsaState = {};
+
+function dsaSign() {
+  const err = document.getElementById('dsa-err');
+  const out = document.getElementById('dsa-out');
+  err.textContent = '';
+  document.getElementById('dsa-verify-result').innerHTML = '';
+
+  const q = BigInt(document.getElementById('dsa-q').value);
+  const p = BigInt(document.getElementById('dsa-p').value);
+  const h = BigInt(document.getElementById('dsa-h').value);
+  const x = BigInt(document.getElementById('dsa-x').value);
+  const k = BigInt(document.getElementById('dsa-k').value);
+  const msg = document.getElementById('dsa-msg').value;
+
+  if (!isPrime(q)) { err.textContent = 'q не простое'; return; }
+  if (!isPrime(p)) { err.textContent = 'p не простое'; return; }
+  if ((p - 1n) % q !== 0n) { err.textContent = '(p-1) должно делиться на q'; return; }
+  if (x < 1n || x >= q) { err.textContent = '0 < x < q'; return; }
+  if (k < 1n || k >= q) { err.textContent = '0 < k < q'; return; }
+  if (!msg) { err.textContent = 'Введите сообщение'; return; }
+
+  const g = modPow(h, (p - 1n) / q, p);
+  if (g <= 1n) { err.textContent = 'g = 1, выберите другое h'; return; }
+
+  const y = modPow(g, x, p);
+
+  // Hash mod q
+  const hMsg = hashMsg(msg, q);
+
+  const r = modPow(g, k, p) % q;
+  // k^(-1) mod q using Fermat's little theorem: k^(q-2) mod q
+  const kInv = modPow(k, q - 2n, q);
+  const s = (kInv * ((hMsg + x * r) % q)) % q;
+
+  if (r === 0n || s === 0n) {
+    err.textContent = 'r или s = 0, выберите другое k';
+    return;
+  }
+
+  dsaState = { q, p, g, y, x, r, s, msg, hMsg };
+
+  document.getElementById('dsa-info').textContent =
+    `g = h^((p-1)/q) mod p = ${g}\ny = g^x mod p = ${y}`;
+  out.textContent =
+    `Хеш H(m) mod q = ${hMsg}\nr = ${r}\ns = ${s}\n\nПодписанное сообщение:\n${msg}\n---SIGNATURE---\n${r},${s}`;
+}
+
+function dsaVerify() {
+  const err = document.getElementById('dsa-err');
+  const vr = document.getElementById('dsa-verify-result');
+  err.textContent = '';
+  vr.innerHTML = '';
+
+  if (!dsaState.g) { err.textContent = 'Сначала подпишите сообщение'; return; }
+
+  const fullText = document.getElementById('dsa-msg').value;
+  const sigSep = '---SIGNATURE---';
+  let msg, rSig, sSig;
+
+  if (fullText.includes(sigSep)) {
+    const parts = fullText.split(sigSep);
+    msg = parts[0].trimEnd();
+    const [rStr, sStr] = parts[1].trim().split(',');
+    rSig = BigInt(rStr);
+    sSig = BigInt(sStr);
+  } else {
+    msg = dsaState.msg;
+    rSig = dsaState.r;
+    sSig = dsaState.s;
+  }
+
+  const { q, p, g, y } = dsaState;
+
+  const hMsg = hashMsg(msg, q);
+
+  // w = s^(-1) mod q (Fermat)
+  const w = modPow(sSig, q - 2n, q);
+  const u1 = (hMsg * w) % q;
+  const u2 = (rSig * w) % q;
+  const v = (modPow(g, u1, p) * modPow(y, u2, p) % p) % q;
+
+  const valid = v === rSig;
+
+  document.getElementById('dsa-out').textContent =
+    `Проверка DSA:\nH(m) mod q = ${hMsg}\nw = s^(-1) mod q = ${w}\nu1 = ${u1}\nu2 = ${u2}\nv = ${v}\nr = ${rSig}\nv == r: ${valid ? 'ДА' : 'НЕТ'}`;
+
+  vr.innerHTML = valid
+    ? '<p class="success">Подпись ВЕРНА</p>'
+    : '<p class="fail">Подпись НЕВЕРНА</p>';
+}
+
+function dsaSave() {
+  if (!dsaState.r) return;
+  const content = `${dsaState.msg}\n---SIGNATURE---\n${dsaState.r},${dsaState.s}`;
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'signed_dsa.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

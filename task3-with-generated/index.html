@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Криптосистема Эль-Гамаля</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Криптосистема Эль-Гамаля</h1>
+      <p class="subtitle">Лабораторная работа 3, вариант 2</p>
+
+      <section class="section">
+        <h2>1. Параметры</h2>
+        <div class="form-grid">
+          <label>
+            Простое число p
+            <input type="number" id="p-val" min="257" max="65535" value="257" />
+          </label>
+          <label>
+            Закрытый ключ x
+            <input type="number" id="x-val" min="2" value="37" />
+          </label>
+          <label>
+            Сеансовый ключ k
+            <input type="number" id="k-val" min="2" value="71" />
+          </label>
+          <label>
+            Первообразный корень g
+            <input type="number" id="g-val" min="2" placeholder="выберите из списка" />
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" id="find-roots-btn">Найти все первообразные корни</button>
+        </div>
+        <div id="param-error" class="error"></div>
+        <div id="key-info" class="info">После выбора g здесь появится открытый ключ y.</div>
+      </section>
+
+      <section class="section">
+        <h2>2. Первообразные корни по модулю p</h2>
+        <textarea
+          id="roots-output"
+          readonly
+          placeholder="Нажмите кнопку поиска, чтобы вывести все найденные корни."></textarea>
+      </section>
+
+      <section class="section">
+        <h2>3. Шифрование файла</h2>
+        <input type="file" id="file-encrypt" />
+        <div class="actions">
+          <button type="button" id="encrypt-btn">Зашифровать файл</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>4. Расшифрование файла</h2>
+        <input type="file" id="file-decrypt" />
+        <div class="actions">
+          <button type="button" id="decrypt-btn">Расшифровать файл</button>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Содержимое зашифрованного файла</h2>
+        <p class="hint">Байты сохраненного потока выводятся в 10-й системе счисления.</p>
+        <textarea
+          id="encrypted-output"
+          readonly
+          placeholder="После шифрования здесь появятся десятичные значения байтов."></textarea>
+      </section>
+
+      <section class="section">
+        <h2>Зашифрованные блоки</h2>
+        <p class="hint">Для каждого исходного байта m сохраняется пара чисел (a, b).</p>
+        <textarea
+          id="blocks-output"
+          readonly
+          placeholder="После шифрования здесь появятся пары (a, b)."></textarea>
+      </section>
+    </main>
+
+    <div
+      id="loading-overlay"
+      class="loading-overlay"
+      role="status"
+      aria-live="polite"
+      aria-hidden="true">
+      <div class="loading-panel">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p id="loading-message" class="loading-message">Подождите...</p>
+      </div>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

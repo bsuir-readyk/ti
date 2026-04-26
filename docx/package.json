@@ -1,0 +1,21 @@
+{
+  "name": "ti",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "scrape": "node scrape.js",
+    "extract": "node extract-content.js",
+    "markdown": "node html-to-markdown.js",
+    "build": "node build-site.js",
+    "rebuild": "node html-to-markdown.js && node build-site.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cheerio": "^1.2.0",
+    "marked": "^17.0.2",
+    "puppeteer": "^24.37.3"
+  }
+}
