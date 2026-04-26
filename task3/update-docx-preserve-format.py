@@ -1,5 +1,6 @@
 import copy
 import shutil
+import struct
 import tempfile
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -55,6 +56,69 @@ def set_table(table, rows):
             set_text(cell, value)
 
 
+def ensure_heading_style(paragraph, style="Heading2"):
+    ppr = paragraph.find(q(W, "pPr"))
+    if ppr is None:
+        ppr = ET.Element(q(W, "pPr"))
+        paragraph.insert(0, ppr)
+
+    pstyle = ppr.find(q(W, "pStyle"))
+    if pstyle is None:
+        pstyle = ET.Element(q(W, "pStyle"))
+        ppr.insert(0, pstyle)
+    pstyle.set(q(W, "val"), style)
+
+
+def fix_toc(document_root):
+    toc_page_numbers = {
+        "1 Задание к лабораторной работе": "3",
+        "2 Тестирование программы": "3",
+        "3 Быстрое возведение в степень": "12",
+        "4 Поиск первообразных корней": "12",
+        "5 Расширенный алгоритм Евклида": "13",
+    }
+    headings_to_style = set(toc_page_numbers)
+    parent_map = {child: parent for parent in document_root.iter() for child in parent}
+    in_toc = False
+    toc_entries_seen = 0
+
+    for paragraph in document_root.iter(q(W, "p")):
+        texts = list(paragraph.iter(q(W, "t")))
+        if not texts:
+            continue
+
+        first = texts[0].text or ""
+        full_text = text_of(paragraph)
+
+        if full_text == "СОДЕРЖАНИЕ":
+            in_toc = True
+            continue
+
+        if in_toc and toc_entries_seen < len(toc_page_numbers) and first in toc_page_numbers and full_text.startswith(first):
+            page_number = toc_page_numbers[first]
+            texts[0].text = first
+            for extra_text in texts[1:]:
+                extra_text.text = ""
+
+            for tab in list(paragraph.iter(q(W, "tab"))):
+                parent = parent_map.get(tab)
+                if parent is not None:
+                    parent.remove(tab)
+
+            run = ET.SubElement(paragraph, q(W, "r"))
+            tab = ET.Element(q(W, "tab"))
+            page_text = ET.Element(q(W, "t"))
+            page_text.text = page_number
+            run.extend([tab, page_text])
+            toc_entries_seen += 1
+            if toc_entries_seen == len(toc_page_numbers):
+                in_toc = False
+            continue
+
+        if full_text in headings_to_style:
+            ensure_heading_style(paragraph)
+
+
 def replace_paragraphs(document_root):
     replacements = {
         "Все тесты запускаются на значениях p = 523, q = 5003, b = 1234":
@@ -101,6 +165,10 @@ def replace_paragraphs(document_root):
         if paragraph_text in replacements:
             set_text(paragraph, replacements[paragraph_text])
             found.add(paragraph_text)
+        else:
+            for original, replacement in replacements.items():
+                if paragraph_text == replacement:
+                    found.add(original)
 
     missing = sorted(set(replacements) - found)
     if missing:
@@ -137,17 +205,59 @@ def replace_tables(document_root):
     ])
 
 
+def png_size(path):
+    with path.open("rb") as file:
+        header = file.read(24)
+    if header[:8] != b"\x89PNG\r\n\x1a\n":
+        raise RuntimeError(f"Not a PNG file: {path}")
+    return struct.unpack(">II", header[16:24])
+
+
+def image_size_emu(path):
+    width_px, height_px = png_size(path)
+    # Puppeteer PNGs do not carry document DPI metadata. Word treats pasted
+    # screen captures as 96 DPI, so use that as the native screenshot size.
+    emu_per_px = 914400 / 96
+    return str(round(width_px * emu_per_px)), str(round(height_px * emu_per_px))
+
+
+def set_drawing_extent(blip, parent_map, cx, cy):
+    current = blip
+    inline_or_anchor = None
+    while current in parent_map:
+        current = parent_map[current]
+        if current.tag.endswith("}inline") or current.tag.endswith("}anchor"):
+            inline_or_anchor = current
+            break
+
+    if inline_or_anchor is None:
+        raise RuntimeError("Could not find drawing container for an image.")
+
+    extent = inline_or_anchor.find(q("http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing", "extent"))
+    if extent is not None:
+        extent.set("cx", cx)
+        extent.set("cy", cy)
+
+    for graphic_extent in inline_or_anchor.iter(q(A, "ext")):
+        if "cx" in graphic_extent.attrib and "cy" in graphic_extent.attrib:
+            graphic_extent.set("cx", cx)
+            graphic_extent.set("cy", cy)
+
+
 def media_replacements(document_root, rels_root):
     rel_targets = {
         rel.attrib["Id"]: rel.attrib["Target"]
         for rel in rels_root
         if "Id" in rel.attrib and "Target" in rel.attrib
     }
+    parent_map = {child: parent for parent in document_root.iter() for child in parent}
+    blips = []
     media_targets = []
     for blip in document_root.iter(q(A, "blip")):
         rel_id = blip.attrib.get(q(R, "embed"))
         target = rel_targets.get(rel_id)
         if target and target.startswith("media/"):
+            blips.append(blip)
             media_targets.append("word/" + target)
 
     screenshots = [
@@ -198,11 +308,12 @@ def media_replacements(document_root, rels_root):
         raise RuntimeError(f"Expected {len(screenshots)} image slots, found {len(media_targets)}.")
 
     replacements = {}
-    for media_target, screenshot in zip(media_targets, screenshots):
+    for blip, media_target, screenshot in zip(blips, media_targets, screenshots):
         path = REPORT_DIR / screenshot
         if not path.exists():
             raise RuntimeError(f"Missing screenshot: {path}")
         replacements[media_target] = path.read_bytes()
+        set_drawing_extent(blip, parent_map, *image_size_emu(path))
     return replacements
 
 
@@ -218,6 +329,7 @@ def main():
 
         replace_paragraphs(document_root)
         replace_tables(document_root)
+        fix_toc(document_root)
 
         replacements = media_replacements(document_root, rels_root)
         replacements["word/document.xml"] = ET.tostring(

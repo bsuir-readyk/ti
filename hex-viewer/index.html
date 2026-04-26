@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hex Viewer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --text: #111827;
+        --muted: #667085;
+        --border: #d6dae1;
+        --accent: #0f766e;
+        --accent-text: #ffffff;
+        --offset: #6b7280;
+        --byte-bg: #eef2f7;
+        --byte-text: #1f2937;
+        --byte-hover: #d9f0ec;
+        --ascii-bg: #f4f5f7;
+        --shadow: 0 18px 42px rgb(15 23 42 / 10%);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #111418;
+          --panel: #181c21;
+          --text: #eef2f7;
+          --muted: #9aa4b2;
+          --border: #303741;
+          --accent: #2dd4bf;
+          --accent-text: #062522;
+          --offset: #9aa4b2;
+          --byte-bg: #20262e;
+          --byte-text: #e6ebf2;
+          --byte-hover: #123f3a;
+          --ascii-bg: #1f242b;
+          --shadow: 0 18px 42px rgb(0 0 0 / 28%);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+
+      .app {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--accent);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", monospace;
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .file-meta {
+        overflow: hidden;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .actions,
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .button,
+      .select,
+      .number-input {
+        min-height: 36px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--panel);
+        color: var(--text);
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 0 12px;
+        cursor: pointer;
+      }
+
+      .button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--accent-text);
+        font-weight: 700;
+      }
+
+      .button:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .button-icon {
+        width: 17px;
+        height: 17px;
+        flex: 0 0 auto;
+      }
+
+      .select {
+        padding: 0 34px 0 10px;
+      }
+
+      .number-input {
+        width: 112px;
+        padding: 0 10px;
+      }
+
+      .controlbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel) 86%, var(--bg));
+      }
+
+      .status {
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", monospace;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .viewer-shell {
+        min-height: 0;
+        padding: 18px 20px 22px;
+      }
+
+      .viewer {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        height: 100%;
+        min-height: 360px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .header-row,
+      .hex-row {
+        display: grid;
+        grid-template-columns: 104px minmax(360px, 1fr) minmax(160px, 0.42fr);
+        gap: 12px;
+        align-items: start;
+      }
+
+      .header-row {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .rows {
+        overflow: auto;
+        padding: 8px 0;
+      }
+
+      .hex-row {
+        min-width: 680px;
+        padding: 2px 14px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", monospace;
+        font-size: 13px;
+        line-height: 1.8;
+      }
+
+      .offset {
+        color: var(--offset);
+        user-select: all;
+      }
+
+      .bytes,
+      .ascii {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+      }
+
+      .byte,
+      .ascii-char {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.4ch;
+        height: 24px;
+        border-radius: 4px;
+      }
+
+      .byte {
+        background: var(--byte-bg);
+        color: var(--byte-text);
+        user-select: all;
+      }
+
+      .ascii-char {
+        width: 1.3ch;
+        background: var(--ascii-bg);
+        color: var(--byte-text);
+      }
+
+      .byte:hover,
+      .ascii-char:hover {
+        background: var(--byte-hover);
+      }
+
+      .empty {
+        display: grid;
+        place-items: center;
+        height: 100%;
+        padding: 24px;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .empty strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text);
+        font-size: 18px;
+      }
+
+      .drop-active .viewer {
+        outline: 3px solid color-mix(in srgb, var(--accent) 60%, transparent);
+        outline-offset: -4px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+      }
+
+      @media (max-width: 760px) {
+        .topbar,
+        .controlbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .actions,
+        .controls {
+          width: 100%;
+        }
+
+        .button,
+        .select,
+        .number-input {
+          flex: 1 1 auto;
+        }
+
+        .viewer-shell {
+          padding: 12px;
+        }
+
+        .header-row,
+        .hex-row {
+          grid-template-columns: 88px minmax(300px, 1fr) minmax(120px, 0.35fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">0x</div>
+          <div>
+            <h1>Hex Viewer</h1>
+            <div class="file-meta" id="fileMeta">No file loaded</div>
+          </div>
+        </div>
+        <div class="actions">
+          <input class="sr-only" id="fileInput" type="file">
+          <button class="button primary" type="button" id="openButton">
+            <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5h6l2 2h8v12H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+              <path d="M4 9h16" fill="none" stroke="currentColor" stroke-width="2"></path>
+            </svg>
+            Open file
+          </button>
+          <button class="button" type="button" id="sampleButton">
+            <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 3h9l3 3v15H6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+              <path d="M14 3v4h4M9 13h6M9 17h6M9 9h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            Sample
+          </button>
+        </div>
+      </header>
+
+      <section class="controlbar" aria-label="Viewer controls">
+        <div class="controls">
+          <label>
+            <span class="sr-only">Bytes per row</span>
+            <select class="select" id="rowSize">
+              <option value="8">8 bytes</option>
+              <option value="16" selected>16 bytes</option>
+              <option value="32">32 bytes</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Page size</span>
+            <select class="select" id="pageSize">
+              <option value="1024">1 KiB</option>
+              <option value="4096" selected>4 KiB</option>
+              <option value="16384">16 KiB</option>
+              <option value="65536">64 KiB</option>
+            </select>
+          </label>
+          <label>
+            <span class="sr-only">Offset</span>
+            <input class="number-input" id="offsetInput" type="text" value="0x00000000" spellcheck="false">
+          </label>
+        </div>
+        <div class="controls">
+          <button class="button" type="button" id="prevButton" disabled aria-label="Previous page">
+            <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m15 18-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+          <button class="button" type="button" id="nextButton" disabled aria-label="Next page">
+            <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m9 18 6-6-6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+          <div class="status" id="status">0 bytes</div>
+        </div>
+      </section>
+
+      <main class="viewer-shell">
+        <section class="viewer" aria-label="Hex output">
+          <div class="header-row" aria-hidden="true">
+            <div>Offset</div>
+            <div>Hex</div>
+            <div>ASCII</div>
+          </div>
+          <div class="rows" id="rows">
+            <div class="empty">
+              <div>
+                <strong>Open a file</strong>
+                <span>Drop one here or use the toolbar.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const state = {
+        bytes: new Uint8Array(),
+        fileName: "",
+        offset: 0,
+        rowSize: 16,
+        pageSize: 4096,
+      };
+
+      const app = document.querySelector("#app");
+      const fileInput = document.querySelector("#fileInput");
+      const openButton = document.querySelector("#openButton");
+      const sampleButton = document.querySelector("#sampleButton");
+      const rowSize = document.querySelector("#rowSize");
+      const pageSize = document.querySelector("#pageSize");
+      const offsetInput = document.querySelector("#offsetInput");
+      const prevButton = document.querySelector("#prevButton");
+      const nextButton = document.querySelector("#nextButton");
+      const fileMeta = document.querySelector("#fileMeta");
+      const status = document.querySelector("#status");
+      const rows = document.querySelector("#rows");
+
+      const textEncoder = new TextEncoder();
+      const sampleText =
+        "Hex Viewer\n\n" +
+        "This page renders offsets, hexadecimal bytes, and printable ASCII.\n" +
+        "Use it with local files; data stays in the browser.\n\n" +
+        "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n";
+
+      openButton.addEventListener("click", () => fileInput.click());
+      sampleButton.addEventListener("click", loadSample);
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (file) {
+          loadFile(file);
+        }
+      });
+
+      rowSize.addEventListener("change", () => {
+        state.rowSize = Number(rowSize.value);
+        render();
+      });
+
+      pageSize.addEventListener("change", () => {
+        state.pageSize = Number(pageSize.value);
+        state.offset = alignOffset(state.offset);
+        render();
+      });
+
+      offsetInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          goToOffset(offsetInput.value);
+        }
+      });
+
+      offsetInput.addEventListener("blur", () => {
+        goToOffset(offsetInput.value);
+      });
+
+      prevButton.addEventListener("click", () => {
+        state.offset = Math.max(0, state.offset - state.pageSize);
+        render();
+      });
+
+      nextButton.addEventListener("click", () => {
+        const maxStart = Math.max(0, state.bytes.length - 1);
+        state.offset = Math.min(maxStart, state.offset + state.pageSize);
+        render();
+      });
+
+      window.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        app.classList.add("drop-active");
+      });
+
+      window.addEventListener("dragleave", (event) => {
+        if (event.target === document || event.clientX === 0 || event.clientY === 0) {
+          app.classList.remove("drop-active");
+        }
+      });
+
+      window.addEventListener("drop", (event) => {
+        event.preventDefault();
+        app.classList.remove("drop-active");
+        const file = event.dataTransfer.files && event.dataTransfer.files[0];
+        if (file) {
+          loadFile(file);
+        }
+      });
+
+      async function loadFile(file) {
+        const buffer = await file.arrayBuffer();
+        state.bytes = new Uint8Array(buffer);
+        state.fileName = file.name;
+        state.offset = 0;
+        render();
+      }
+
+      function loadSample() {
+        const prefix = new Uint8Array([
+          0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+          0x08, 0x09, 0x0a, 0x0d, 0x1b, 0x7f, 0x80, 0xff,
+        ]);
+        const text = textEncoder.encode(sampleText);
+        const bytes = new Uint8Array(prefix.length + text.length);
+        bytes.set(prefix);
+        bytes.set(text, prefix.length);
+        state.bytes = bytes;
+        state.fileName = "sample.bin";
+        state.offset = 0;
+        render();
+      }
+
+      function goToOffset(value) {
+        const parsed = parseOffset(value);
+        if (parsed === null) {
+          offsetInput.value = formatOffset(state.offset);
+          return;
+        }
+        const maxStart = Math.max(0, state.bytes.length - 1);
+        state.offset = Math.min(maxStart, Math.max(0, parsed));
+        render();
+      }
+
+      function parseOffset(value) {
+        const clean = value.trim().replaceAll("_", "");
+        if (!clean) {
+          return null;
+        }
+        if (/^0x[0-9a-f]+$/i.test(clean)) {
+          return Number.parseInt(clean.slice(2), 16);
+        }
+        if (/^[0-9a-f]+h$/i.test(clean)) {
+          return Number.parseInt(clean.slice(0, -1), 16);
+        }
+        if (/^[0-9]+$/.test(clean)) {
+          return Number.parseInt(clean, 10);
+        }
+        if (/^[0-9a-f]+$/i.test(clean)) {
+          return Number.parseInt(clean, 16);
+        }
+        return null;
+      }
+
+      function alignOffset(offset) {
+        if (state.pageSize <= 0) {
+          return 0;
+        }
+        return Math.floor(offset / state.pageSize) * state.pageSize;
+      }
+
+      function render() {
+        const length = state.bytes.length;
+        const pageEnd = Math.min(length, state.offset + state.pageSize);
+        const fragment = document.createDocumentFragment();
+
+        rows.textContent = "";
+
+        if (!length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.innerHTML = "<div><strong>Open a file</strong><span>Drop one here or use the toolbar.</span></div>";
+          rows.append(empty);
+          fileMeta.textContent = "No file loaded";
+          status.textContent = "0 bytes";
+          offsetInput.value = "0x00000000";
+          prevButton.disabled = true;
+          nextButton.disabled = true;
+          return;
+        }
+
+        for (let offset = state.offset; offset < pageEnd; offset += state.rowSize) {
+          fragment.append(renderRow(offset, pageEnd));
+        }
+
+        rows.append(fragment);
+        fileMeta.textContent = `${state.fileName} - ${formatBytes(length)}`;
+        status.textContent = `${formatOffset(state.offset)} - ${formatOffset(Math.max(state.offset, pageEnd - 1))}`;
+        offsetInput.value = formatOffset(state.offset);
+        prevButton.disabled = state.offset === 0;
+        nextButton.disabled = pageEnd >= length;
+      }
+
+      function renderRow(offset, pageEnd) {
+        const row = document.createElement("div");
+        row.className = "hex-row";
+
+        const offsetCell = document.createElement("div");
+        offsetCell.className = "offset";
+        offsetCell.textContent = formatOffset(offset);
+
+        const bytesCell = document.createElement("div");
+        bytesCell.className = "bytes";
+
+        const asciiCell = document.createElement("div");
+        asciiCell.className = "ascii";
+
+        const rowEnd = Math.min(offset + state.rowSize, pageEnd, state.bytes.length);
+        for (let i = offset; i < rowEnd; i += 1) {
+          const value = state.bytes[i];
+          const byte = document.createElement("span");
+          byte.className = "byte";
+          byte.textContent = value.toString(16).padStart(2, "0").toUpperCase();
+          byte.title = `${formatOffset(i)} / ${value}`;
+          bytesCell.append(byte);
+
+          const ascii = document.createElement("span");
+          ascii.className = "ascii-char";
+          ascii.textContent = value >= 32 && value <= 126 ? String.fromCharCode(value) : ".";
+          ascii.title = `${formatOffset(i)} / ${value}`;
+          asciiCell.append(ascii);
+        }
+
+        row.append(offsetCell, bytesCell, asciiCell);
+        return row;
+      }
+
+      function formatOffset(offset) {
+        const width = Math.max(8, state.bytes.length.toString(16).length);
+        return `0x${offset.toString(16).padStart(width, "0").toUpperCase()}`;
+      }
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) {
+          return `${bytes} bytes`;
+        }
+        const units = ["KiB", "MiB", "GiB"];
+        let value = bytes;
+        let unit = "bytes";
+        for (const next of units) {
+          value /= 1024;
+          unit = next;
+          if (value < 1024) {
+            break;
+          }
+        }
+        return `${value.toFixed(value >= 10 ? 1 : 2)} ${unit}`;
+      }
+    </script>
+  </body>
+</html>
